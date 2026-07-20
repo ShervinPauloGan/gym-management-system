@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-[#111111] font-sans antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-bright border border-border rounded-lg;
+  }
+  .card-elevated {
+    @apply bg-surface-bright border border-border rounded-lg shadow-[0px_4px_20px_rgba(0,0,0,0.05)];
+  }
+}

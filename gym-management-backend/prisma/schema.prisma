@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String             @id @default(uuid()) @db.Uuid
+  fullName        String             @map("full_name")
+  email           String?            @unique
+  passwordHash    String?            @map("password_hash")
+  role            String             @default("member")
+  qrCodeToken     String             @unique @map("qr_code_token")
+  pointsBalance   Int                @default(0) @map("points_balance")
+  tier            String             @default("walk-in")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  memberships     Membership[]
+  checkInLogs     CheckInLog[]
+  redemptions     RedemptionHistory[]
+  @@map("users")
+}
+
+model PlanShop {
+  id           String       @id @default(uuid()) @db.Uuid
+  planName     String       @map("plan_name")
+  durationDays Int          @map("duration_days")
+  price        Decimal      @db.Decimal(10, 2)
+  tier         String       @default("silver")
+  description  String?
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  memberships  Membership[]
+  @@map("plan_shop")
+}
+
+model Membership {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  planId         String   @map("plan_id") @db.Uuid
+  startDate      DateTime @map("start_date")
+  expirationDate DateTime @map("expiration_date")
+  status         String   @default("active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan           PlanShop @relation(fields: [planId], references: [id])
+  @@index([expirationDate, status])
+  @@map("memberships")
+}
+
+model RedeemShop {
+  id            String             @id @default(uuid()) @db.Uuid
+  itemName      String             @map("item_name")
+  pointsCost    Int                @map("points_cost")
+  stockQuantity Int                @map("stock_quantity")
+  description   String?
+  imageUrl      String?            @map("image_url")
+  isAvailable   Boolean            @default(true) @map("is_available")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  redemptions   RedemptionHistory[]
+  @@map("redeem_shop")
+}
+
+model CheckInLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  checkInTime  DateTime @default(now()) @map("check_in_time")
+  pointsEarned Int      @default(0) @map("points_earned")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, checkInTime])
+  @@map("check_in_logs")
+}
+
+model RedemptionHistory {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  itemId      String     @map("item_id") @db.Uuid
+  pointsSpent Int        @map("points_spent")
+  redeemedAt  DateTime   @default(now()) @map("redeemed_at")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item        RedeemShop @relation(fields: [itemId], references: [id])
+  @@map("redemption_history")
+}
