@@ -1,27 +1,37 @@
+import { useQuery } from "@tanstack/react-query";
+import { settingsService } from "../../services";
 import { Card } from "@/shared/components/ui/Card";
-import { useAuthStore } from "@/shared/stores/auth.store";
-import { Button } from "@/shared/components/ui/Button";
-import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
 
 export function SettingsPage() {
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => settingsService.get().then((r) => r.data) });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-metric-lg text-[#111111]">Settings</h1>
-        <p className="text-sm text-muted mt-1">Manage system preferences</p>
+        <p className="text-sm text-muted mt-1">System configuration</p>
       </div>
-      <Card className="space-y-4">
-        <p className="text-sm font-medium">Account</p>
-        <p className="text-sm text-muted">
-          Signed in as <span className="text-[#111111]">{user?.email}</span> ({user?.role})
-        </p>
-        <Button variant="secondary" onClick={logout}>
-          <ArrowRightOnRectangleIcon className="w-4 h-4" />
-          Sign out
-        </Button>
+
+      <Card className="p-6">
+        <h3 className="text-sm font-semibold text-[#111111] mb-4">General</h3>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center py-2 border-b border-border/50">
+            <span className="text-sm text-[#111111]">Gym Name</span>
+            <span className="text-sm text-muted">{data?.gymName || "—"}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-border/50">
+            <span className="text-sm text-[#111111]">Timezone</span>
+            <span className="text-sm text-muted">{data?.timezone || "—"}</span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-border/50">
+            <span className="text-sm text-[#111111]">Admin Email</span>
+            <span className="text-sm text-muted">{data?.admin?.email || "—"}</span>
+          </div>
+          <div className="flex justify-between items-center py-2">
+            <span className="text-sm text-[#111111]">Admin Name</span>
+            <span className="text-sm text-muted">{data?.admin?.fullName || "—"}</span>
+          </div>
+        </div>
       </Card>
     </div>
   );

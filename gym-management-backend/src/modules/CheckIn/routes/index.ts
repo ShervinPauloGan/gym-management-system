@@ -14,39 +14,59 @@ router.post("/", async (req, res, next) => {
   try {
     const { qrCodeToken } = checkInSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({
-      where: { qrCodeToken },
-    });
-
-    if (!user) {
-      throw new AppError(404, "User not found");
-    }
+    const user = await prisma.user.findUnique({ where: { qrCodeToken } });
+    if (!user) throw new AppError(404, "User not found");
 
     const membership = await prisma.membership.findFirst({
       where: { userId: user.id, status: "active", expirationDate: { gte: new Date() } },
     });
 
-    if (!membership) {
-      throw new AppError(403, "No active membership");
-    }
+    if (!membership) throw new AppError(403, "No active membership");
 
     const pointsEarned = POINTS_PER_CHECKIN[user.tier] || 0;
 
     await prisma.$transaction([
-      prisma.checkInLog.create({
-        data: { userId: user.id, pointsEarned },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { pointsBalance: { increment: pointsEarned } },
-      }),
+      prisma.checkInLog.create({ data: { userId: user.id, pointsEarned } }),
+      prisma.user.update({ where: { id: user.id }, data: { pointsBalance: { increment: pointsEarned } } }),
     ]);
 
     res.json({ granted: true, pointsEarned, user: { id: user.id, fullName: user.fullName, tier: user.tier } });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ error: "Invalid QR code" });
-    }
+    if (err instanceof z.ZodError) return res.status(400).json({ error: "Invalid QR code" });
+    next(err);
+  }
+});
+
+router.get("/today", async (_req, res, next) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const logs = await prisma.checkInLog.findMany({
+      where: { checkInTime: { gte: today } },
+      include: { user: { select: { fullName: true, tier: true } } },
+      orderBy: { checkInTime: "desc" },
+      take: 50,
+    });
+
+    res.json(logs);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/stats", async (_req, res, next) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [totalToday, activeMembers] = await Promise.all([
+      prisma.checkInLog.count({ where: { checkInTime: { gte: today } } }),
+      prisma.membership.count({ where: { status: "active", expirationDate: { gte: new Date() } } }),
+    ]);
+
+    res.json({ totalToday, activeMembers });
+  } catch (err) {
     next(err);
   }
 });

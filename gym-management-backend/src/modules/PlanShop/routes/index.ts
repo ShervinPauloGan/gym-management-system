@@ -1,17 +1,12 @@
 import { Router } from "express";
-import { prisma } from "../../../database";
+import { planShopController } from "../app/planShop.controller";
 
 const router = Router();
 
-router.get("/", async (_req, res, next) => {
-  try {
-    const plans = await prisma.planShop.findMany({
-      where: { isActive: true },
-    });
-    res.json(plans);
-  } catch (err) {
-    next(err);
-  }
-});
+router.get("/", planShopController.list);
+router.get("/:id", planShopController.getById);
+router.post("/", planShopController.create);
+router.put("/:id", planShopController.update);
+router.delete("/:id", planShopController.remove);
 
 export { router as planShopRouter };

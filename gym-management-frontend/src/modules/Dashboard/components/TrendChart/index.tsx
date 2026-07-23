@@ -1,34 +1,61 @@
-import { Card } from "@/shared/components/ui/Card";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { dashboardService } from "../../services";
 
 export function TrendChart() {
+  const [period, setPeriod] = useState(30);
+  const { data } = useQuery({ queryKey: ["trends", period], queryFn: () => dashboardService.getTrends().then((r) => r.data) });
+
+  const records = (data ?? []).slice(-period);
+  const max = Math.max(1, ...records.map((r: { checkIns: number }) => r.checkIns), ...records.map((r: { registrations: number }) => r.registrations));
+
+  const w = 600;
+  const h = 200;
+  const pad = 30;
+  const gw = w - pad * 2;
+  const gh = h - pad * 2;
+
+  function line(points: number[]) {
+    return points
+      .map((v, i) => {
+        const x = pad + (i / Math.max(1, points.length - 1)) * gw;
+        const y = pad + gh - (v / max) * gh;
+        return `${i === 0 ? "M" : "L"}${x},${y}`;
+      })
+      .join(" ");
+  }
+
+  const checkInLine = line(records.map((r: { checkIns: number }) => r.checkIns));
+  const regLine = line(records.map((r: { registrations: number }) => r.registrations));
+  const labels = records.filter((_: unknown, i: number) => i % 5 === 0 || i === records.length - 1);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-[#111111]">Growth Trends</h3>
-          <p className="text-xs text-muted">Monthly overview</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {["7D", "30D", "90D"].map((p) => (
-            <button key={p} className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${p === "30D" ? "bg-primary text-primary-foreground" : "text-muted hover:bg-surface-container"}`}>
-              {p}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-[#111111]">Growth Trends</h3>
+        <div className="flex gap-1">
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setPeriod(d)}
+              className={`px-3 py-1 text-xs rounded-md cursor-pointer transition-colors ${period === d ? "bg-primary text-primary-foreground" : "text-muted hover:bg-surface-container"}`}>
+              {d}D
             </button>
           ))}
         </div>
       </div>
-      <div className="w-full h-48 bg-surface-container-low rounded-lg flex items-center justify-center">
-        <svg className="w-full h-full px-2" viewBox="0 0 340 120" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#111111" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#111111" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d="M0,100 L20,85 L40,90 L60,70 L80,75 L100,55 L120,60 L140,40 L160,45 L180,30 L200,35 L220,20 L240,25 L260,15 L280,18 L300,10 L320,12 L340,8" fill="none" stroke="#111111" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M0,110 L20,100 L40,95 L60,85 L80,80 L100,70 L120,65 L140,55 L160,50 L180,40 L200,35 L220,25 L240,20 L260,15 L280,12 L300,8 L320,5 L340,3" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 2" />
-          <path d="M0,105 L20,95 L40,85 L60,80 L80,70 L100,65 L120,55 L140,50 L160,40 L180,35 L200,25 L220,20 L240,15 L260,12 L280,10 L300,8 L320,6 L340,4" fill="none" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto">
+        {Array.from({ length: 5 }, (_, i) => (
+          <line key={i} x1={pad} y1={pad + (gh / 4) * i} x2={w - pad} y2={pad + (gh / 4) * i} stroke="#E5E7EB" strokeWidth="1" />
+        ))}
+        <path d={checkInLine} fill="none" stroke="#111111" strokeWidth="2" />
+        <path d={regLine} fill="none" stroke="#6B7280" strokeWidth="2" strokeDasharray="4 2" />
+        {labels.map((r: { date: string }, i: number) => {
+          const idx = records.findIndex((d: { date: string }) => d.date === r.date);
+          const x = pad + (idx / Math.max(1, records.length - 1)) * gw;
+          return <text key={i} x={x} y={h - 4} textAnchor="middle" className="fill-muted text-[8px]">{r.date.slice(5)}</text>;
+        })}
+        <text x={w - pad} y={pad + 10} textAnchor="end" className="fill-[#111111] text-[8px]">Check-ins</text>
+        <text x={w - pad} y={pad + 22} textAnchor="end" className="fill-muted text-[8px]">Registrations</text>
+      </svg>
     </div>
   );
 }

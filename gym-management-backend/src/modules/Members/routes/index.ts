@@ -1,18 +1,12 @@
 import { Router } from "express";
-import { prisma } from "../../../database";
+import { membersController } from "../app/members.controller";
 
 const router = Router();
 
-router.get("/", async (_req, res, next) => {
-  try {
-    const members = await prisma.user.findMany({
-      where: { role: "member" },
-      select: { id: true, fullName: true, email: true, tier: true, pointsBalance: true, qrCodeToken: true, createdAt: true },
-    });
-    res.json(members);
-  } catch (err) {
-    next(err);
-  }
-});
+router.get("/", membersController.list);
+router.get("/:id", membersController.getById);
+router.post("/", membersController.create);
+router.put("/:id", membersController.update);
+router.delete("/:id", membersController.remove);
 
 export { router as membersRouter };
