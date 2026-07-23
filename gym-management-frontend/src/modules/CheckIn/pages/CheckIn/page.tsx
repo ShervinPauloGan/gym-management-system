@@ -7,10 +7,18 @@ import { Card } from "@/shared/components/ui/Card";
 import { CameraIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
 export function CheckInPage() {
   const queryClient = useQueryClient();
   const [scanning, setScanning] = useState(false);
-  const [result, setResult] = useState<{ granted: boolean; pointsEarned: number; user: { fullName: string; tier: string } } | null>(null);
+  const [result, setResult] = useState<{ granted: boolean; pointsEarned: number; user: { fullName: string; tier: string }; membership: { planName: string; expiresAt: string } } | null>(null);
   const scanningRef = useRef(false);
 
   const { data: todayLogs } = useQuery({ queryKey: ["today-checkins"], queryFn: () => checkInService.getTodayLogs().then((r) => r.data) });
@@ -97,7 +105,16 @@ export function CheckInPage() {
           {result && (
             <div className={`w-full p-4 rounded-lg text-center transition-all ${result.granted ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
               <p className="font-semibold">{result.granted ? "Check-in Granted" : "Check-in Denied"}</p>
-              {result.granted && <p className="text-sm mt-1">{result.user.fullName} · +{result.pointsEarned} pts</p>}
+              {result.granted && (
+                <div className="text-sm mt-1 space-y-1">
+                  <p className="font-medium">{result.user.fullName}</p>
+                  <p className="text-xs">
+                    <span className="capitalize">{result.user.tier}</span>
+                    {result.membership?.planName && <span> · {result.membership.planName}</span>}
+                  </p>
+                  <p className="text-xs opacity-70">+{result.pointsEarned} pts earned</p>
+                </div>
+              )}
             </div>
           )}
         </Card>
@@ -107,15 +124,21 @@ export function CheckInPage() {
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {(todayLogs ?? []).length === 0 && <p className="text-xs text-muted">No check-ins today</p>}
             {(todayLogs ?? []).map((log: any) => (
-              <div key={log.id} className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 rounded-full bg-surface-dim flex items-center justify-center text-xs font-bold text-muted">
+              <div key={log.id} className="flex items-center gap-3 text-sm p-2 rounded-lg hover:bg-surface-container/50">
+                <div className="w-9 h-9 rounded-full bg-surface-dim flex items-center justify-center text-xs font-bold text-muted flex-shrink-0">
                   {log.user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-[#111111]">{log.user.fullName}</p>
-                  <p className="text-[10px] text-muted">+{log.pointsEarned} pts · {new Date(log.checkInTime).toLocaleTimeString()}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-[#111111] truncate">{log.user.fullName}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-muted">
+                    <span className={`px-1.5 py-0.5 rounded-full capitalize ${
+                      log.user.tier === "gold" ? "bg-yellow-100 text-yellow-700" : log.user.tier === "silver" ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-600"
+                    }`}>{log.user.tier}</span>
+                    {log.user.planName !== "None" && <span>{log.user.planName}</span>}
+                    <span>· +{log.pointsEarned} pts</span>
+                  </div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${log.user.tier === "gold" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>{log.user.tier}</span>
+                <span className="text-xs text-muted whitespace-nowrap flex-shrink-0">{timeAgo(log.checkInTime)}</span>
               </div>
             ))}
           </div>

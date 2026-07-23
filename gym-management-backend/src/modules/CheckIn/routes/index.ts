@@ -19,6 +19,7 @@ router.post("/", async (req, res, next) => {
 
     const membership = await prisma.membership.findFirst({
       where: { userId: user.id, status: "active", expirationDate: { gte: new Date() } },
+      include: { plan: { select: { planName: true } } },
     });
 
     if (!membership) throw new AppError(403, "No active membership");
@@ -30,7 +31,12 @@ router.post("/", async (req, res, next) => {
       prisma.user.update({ where: { id: user.id }, data: { pointsBalance: { increment: pointsEarned } } }),
     ]);
 
-    res.json({ granted: true, pointsEarned, user: { id: user.id, fullName: user.fullName, tier: user.tier } });
+    res.json({
+      granted: true,
+      pointsEarned,
+      user: { id: user.id, fullName: user.fullName, tier: user.tier },
+      membership: { planName: membership.plan.planName, expiresAt: membership.expirationDate },
+    });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: "Invalid QR code" });
     next(err);
@@ -44,12 +50,35 @@ router.get("/today", async (_req, res, next) => {
 
     const logs = await prisma.checkInLog.findMany({
       where: { checkInTime: { gte: today } },
-      include: { user: { select: { fullName: true, tier: true } } },
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            tier: true,
+            memberships: {
+              where: { status: "active", expirationDate: { gte: new Date() } },
+              select: { plan: { select: { planName: true } } },
+              take: 1,
+            },
+          },
+        },
+      },
       orderBy: { checkInTime: "desc" },
       take: 50,
     });
 
-    res.json(logs);
+    res.json(
+      logs.map((log) => ({
+        id: log.id,
+        checkInTime: log.checkInTime,
+        pointsEarned: log.pointsEarned,
+        user: {
+          fullName: log.user.fullName,
+          tier: log.user.tier,
+          planName: log.user.memberships[0]?.plan?.planName ?? "None",
+        },
+      })),
+    );
   } catch (err) {
     next(err);
   }
