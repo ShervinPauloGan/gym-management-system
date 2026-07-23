@@ -66,11 +66,12 @@ model RedeemShop {
 }
 
 model CheckInLog {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  checkInTime  DateTime @default(now()) @map("check_in_time")
-  pointsEarned Int      @default(0) @map("points_earned")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  checkInTime  DateTime  @default(now()) @map("check_in_time")
+  checkOutTime DateTime? @map("check_out_time")
+  pointsEarned Int       @default(0) @map("points_earned")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, checkInTime])
   @@map("check_in_logs")
 }

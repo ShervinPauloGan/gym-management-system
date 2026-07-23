@@ -26,19 +26,38 @@ router.post("/", async (req, res, next) => {
 
     const pointsEarned = POINTS_PER_CHECKIN[user.tier] || 0;
 
-    await prisma.$transaction([
+    const [log] = await prisma.$transaction([
       prisma.checkInLog.create({ data: { userId: user.id, pointsEarned } }),
       prisma.user.update({ where: { id: user.id }, data: { pointsBalance: { increment: pointsEarned } } }),
     ]);
 
     res.json({
       granted: true,
+      checkInId: log.id,
+      checkInTime: log.checkInTime,
       pointsEarned,
       user: { id: user.id, fullName: user.fullName, tier: user.tier },
       membership: { planName: membership.plan.planName, expiresAt: membership.expirationDate },
     });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: "Invalid QR code" });
+    next(err);
+  }
+});
+
+router.post("/:id/checkout", async (req, res, next) => {
+  try {
+    const log = await prisma.checkInLog.findUnique({ where: { id: String(req.params.id) } });
+    if (!log) throw new AppError(404, "Check-in log not found");
+    if (log.checkOutTime) throw new AppError(400, "Already checked out");
+
+    const updated = await prisma.checkInLog.update({
+      where: { id: log.id },
+      data: { checkOutTime: new Date() },
+    });
+
+    res.json({ checkedOut: true, checkOutTime: updated.checkOutTime });
+  } catch (err) {
     next(err);
   }
 });
@@ -71,6 +90,7 @@ router.get("/today", async (_req, res, next) => {
       logs.map((log) => ({
         id: log.id,
         checkInTime: log.checkInTime,
+        checkOutTime: log.checkOutTime,
         pointsEarned: log.pointsEarned,
         user: {
           fullName: log.user.fullName,
@@ -89,12 +109,13 @@ router.get("/stats", async (_req, res, next) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [totalToday, activeMembers] = await Promise.all([
+    const [totalToday, checkedOutToday, activeMembers] = await Promise.all([
       prisma.checkInLog.count({ where: { checkInTime: { gte: today } } }),
+      prisma.checkInLog.count({ where: { checkInTime: { gte: today }, checkOutTime: { not: null } } }),
       prisma.membership.count({ where: { status: "active", expirationDate: { gte: new Date() } } }),
     ]);
 
-    res.json({ totalToday, activeMembers });
+    res.json({ totalToday, checkedOutToday, activeMembers });
   } catch (err) {
     next(err);
   }

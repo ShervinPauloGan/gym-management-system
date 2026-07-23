@@ -40,6 +40,12 @@ export function CheckInPage() {
     },
   });
 
+  const checkoutMutation = useMutation({
+    mutationFn: (id: string) => checkInService.checkout(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["today-checkins"] }); toast.success("Checked out"); },
+    onError: (err: any) => toast.error(err.response?.data?.error || "Checkout failed"),
+  });
+
   const handleScan = useCallback(
     (detectedCodes: { rawValue: string }[]) => {
       if (scanningRef.current || !detectedCodes?.length) return;
@@ -136,9 +142,18 @@ export function CheckInPage() {
                     }`}>{log.user.tier}</span>
                     {log.user.planName !== "None" && <span>{log.user.planName}</span>}
                     <span>· +{log.pointsEarned} pts</span>
+                    {log.checkOutTime && <span className="text-emerald-600 font-medium">· Out</span>}
                   </div>
                 </div>
-                <span className="text-xs text-muted whitespace-nowrap flex-shrink-0">{timeAgo(log.checkInTime)}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs text-muted">{timeAgo(log.checkInTime)}</span>
+                  {!log.checkOutTime && (
+                    <button onClick={() => checkoutMutation.mutate(log.id)}
+                      className="text-[10px] px-2 py-1 rounded-md bg-surface-dim hover:bg-surface-container-higher text-muted hover:text-[#111111] cursor-pointer transition-colors">
+                      Check out
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
